@@ -46,6 +46,9 @@ Autoscale = true
   {% if queue.EnableAcceleratedNetworking is defined %}
     EnableAcceleratedNetworking = {{ queue.EnableAcceleratedNetworking }}
   {% endif %}
+  {% if queue.MaxScalesetSize is defined %}
+    Azure.MaxScalesetSize = {{ queue.MaxScalesetSize }}
+  {% endif %}
   {% if queue.spot is defined %}
     Interruptible = {{queue.spot}}
   {% endif %}
