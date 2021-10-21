@@ -3,23 +3,26 @@
 ## Cluster Configuration File ##
 ################################
 
-[cluster Slurm]
+[cluster azhop-SLURM]
 FormLayout = selectionpanel
 Category = Schedulers
 
-Autoscale = $Autoscale
+Autoscale = true
 
     [[node defaults]]
-    Credentials = $Credentials    
+    UsePublicNetwork = false
+    Credentials = azure    
     SubnetId = {{ cc_subnetid }}
     Region = {{ cc_region }}
     KeyPairLocation = ~/.ssh/cyclecloud.pem
+    ImageName = OpenLogic:CentOS-HPC:7_9-gen2:latest
+    EnableAcceleratedNetworking = false
 
     # Slurm autoscaling supports both Terminate and Deallocate shutdown policies
-    ShutdownPolicy = $configuration_slurm_shutdown_policy
+    ShutdownPolicy = Terminate
     
         [[[configuration]]]
-        slurm.version = $configuration_slurm_version
+        slurm.version = "20.11.0-0rc2"
 
     # For fast spin-up after Deallocate, force an immediate re-converge on boot
         cyclecloud.converge_on_boot = true
@@ -40,25 +43,6 @@ Autoscale = $Autoscale
 #        [[[cluster-init cyclecloud/slurm:default]]]
 #        Optional = true
 
-        [[[configuration cyclecloud.mounts.nfs_shared]]]
-        type = nfs
-        mountpoint = /shared
-        export_path = $NFSSharedExportPath
-        address = $NFSAddress
-        options = $NFSSharedMountOptions
-
-        [[[configuration cyclecloud.mounts.nfs_sched]]]
-        type = nfs
-        mountpoint = /sched
-
-        [[[configuration cyclecloud.mounts.additional_nfs]]]
-        disabled = ${AdditionalNAS isnt true}
-        type = nfs
-        address = $AdditonalNFSAddress
-        mountpoint = $AdditionalNFSMountPoint
-        export_path = $AdditionalNFSExportPath
-        options = $AdditionalNFSMountOptions
-
 {% for queue in cc_queues %}
     [[nodearray {{ queue.name }}]]
     MachineType = {{ queue.vm_size }} 
@@ -76,12 +60,12 @@ Autoscale = $Autoscale
     ImageName = {{ queue.image }}
   {% endif %}
         [[[configuration]]]
-        slurm.autoscale = true
+        #slurm.autoscale = true
         slurm.default_partition = true
         slurm.hpc = true
 {% endfor %}
 
-    [[nodearray hpc]]
+    {# [[nodearray hpc]]
     MachineType = $HPCMachineType
     ImageName = $HPCImageName
     MaxCoreCount = $MaxHPCExecuteCoreCount
@@ -92,7 +76,7 @@ Autoscale = $Autoscale
         [[[configuration]]]
         slurm.autoscale = true
         slurm.default_partition = true
-        slurm.hpc = true
+        slurm.hpc = true #}
 
 #        [[[cluster-init cyclecloud/slurm:execute]]]
 
