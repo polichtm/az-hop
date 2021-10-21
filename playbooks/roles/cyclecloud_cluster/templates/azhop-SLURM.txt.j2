@@ -1,0 +1,100 @@
+
+################################
+## Cluster Configuration File ##
+################################
+
+[cluster Slurm]
+FormLayout = selectionpanel
+Category = Schedulers
+
+Autoscale = $Autoscale
+
+    [[node defaults]]
+    Credentials = $Credentials    
+    SubnetId = {{ cc_subnetid }}
+    Region = {{ cc_region }}
+    KeyPairLocation = ~/.ssh/cyclecloud.pem
+
+    # Slurm autoscaling supports both Terminate and Deallocate shutdown policies
+    ShutdownPolicy = $configuration_slurm_shutdown_policy
+    
+        [[[configuration]]]
+        slurm.version = $configuration_slurm_version
+
+    # For fast spin-up after Deallocate, force an immediate re-converge on boot
+        cyclecloud.converge_on_boot = true
+
+        # Disable normal NFS exports and mounts
+        cyclecloud.mounts.sched.disabled = true
+        cyclecloud.mounts.shared.disabled = true
+        cyclecloud.exports.sched.disabled = true
+        cyclecloud.exports.shared.disabled = true
+        cyclecloud.exports.sched.samba.enabled = false
+        cyclecloud.exports.shared.samba.enabled = false
+        cyclecloud.exports.defaults.samba.enabled = false      
+        cshared.server.legacy_links_disabled = true
+
+        [[[cluster-init common:default:1.0.0]]]
+        [[[cluster-init slurm:default:1.0.0]]]
+        
+#        [[[cluster-init cyclecloud/slurm:default]]]
+#        Optional = true
+
+        [[[configuration cyclecloud.mounts.nfs_shared]]]
+        type = nfs
+        mountpoint = /shared
+        export_path = $NFSSharedExportPath
+        address = $NFSAddress
+        options = $NFSSharedMountOptions
+
+        [[[configuration cyclecloud.mounts.nfs_sched]]]
+        type = nfs
+        mountpoint = /sched
+
+        [[[configuration cyclecloud.mounts.additional_nfs]]]
+        disabled = ${AdditionalNAS isnt true}
+        type = nfs
+        address = $AdditonalNFSAddress
+        mountpoint = $AdditionalNFSMountPoint
+        export_path = $AdditionalNFSExportPath
+        options = $AdditionalNFSMountOptions
+
+{% for queue in cc_queues %}
+    [[nodearray {{ queue.name }}]]
+    MachineType = {{ queue.vm_size }} 
+    MaxCoreCount = {{ queue.max_core_count }}
+  {% if queue.EnableAcceleratedNetworking is defined %}
+    EnableAcceleratedNetworking = {{ queue.EnableAcceleratedNetworking }}
+  {% endif %}
+  {% if queue.spot is defined %}
+    Interruptible = {{queue.spot}}
+  {% endif %}
+    # Lookup image version for that queue
+  {% if cc_image_lookup is iterable and queue.name in cc_image_lookup %}
+    ImageName = {{ cc_image_lookup[queue.name] }}
+  {% else %}
+    ImageName = {{ queue.image }}
+  {% endif %}
+        [[[configuration]]]
+        slurm.autoscale = true
+        slurm.default_partition = true
+        slurm.hpc = true
+{% endfor %}
+
+    [[nodearray hpc]]
+    MachineType = $HPCMachineType
+    ImageName = $HPCImageName
+    MaxCoreCount = $MaxHPCExecuteCoreCount
+    Azure.MaxScalesetSize = $HPCMaxScalesetSize
+    AdditionalClusterInitSpecs = $HPCClusterInitSpecs
+
+
+        [[[configuration]]]
+        slurm.autoscale = true
+        slurm.default_partition = true
+        slurm.hpc = true
+
+#        [[[cluster-init cyclecloud/slurm:execute]]]
+
+#        Config.Entries := {[Value="19.05.8-1"], [Value="20.11.0-0rc2"]}
+#        DefaultValue = 19.05.8-1

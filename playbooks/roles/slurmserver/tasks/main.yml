@@ -1,0 +1,208 @@
+---
+
+- name: Install dependencies
+  yum:
+    name: 
+      - python3,python3-pip
+      - nfs-utils
+      - jq
+      - gcc
+      - mariadb-devel
+      - openssl,openssl-devel,pam-devel
+      - rpm-build
+      - numactl,numactl-devel
+      - hwloc,hwloc-devel
+      - lua,lua-devel
+      - readline-devel,rrdtool-devel,ncurses-devel
+      - man2html
+      - perl,perl-ExtUtils-MakeMaker
+      - munge,munge-devel
+
+- name: Download SLURM
+  get_url:
+    url: https://download.schedmd.com/slurm/slurm-{{cc_slurm_version}}.tar.bz2
+    dest: /mnt/resource/
+
+- name: Checking if SLURM RPMs exist
+  find:
+    paths: /anfhome/apps/rpms
+    patterns: 'slurm*rpm'
+    file_type: file
+  register: slurm_rpms
+
+- name: Build SLURM
+  shell: |
+    rpmbuild -ta slurm-{{cc_slurm_version}}.tar.bz2
+    mkdir -p /anfhome/apps/rpms
+    cp /root/rpmbuild/RPMS/x86_64/slurm-* /anfhome/apps/rpms/
+  args:
+    chdir: /mnt/resource
+  when: slurm_rpms.matched == 0
+
+- name: Install MUNGE
+  shell: |
+    MUNGEKEY={{munge_key}}
+    echo ${MUNGEKEY} > /etc/munge/munge.key
+    chown munge /etc/munge/munge.key
+    chmod 600 /etc/munge/munge.key
+
+- name: Start MUNGE
+  service:
+    name: munge
+    state: started
+    enabled: yes
+
+- name: Finding SLURM RPMs
+  find:
+    paths: /anfhome/apps/rpms
+    patterns: 'slurm*rpm'
+    file_type: file
+  register: slurm_rpms
+
+- name: Install SLURM RPMs
+  shell: yum localinstall -y /anfhome/apps/rpms/slurm*rpm
+
+- name: Create SLURM users and directories
+  shell: |
+    export SLURMUSER=1002
+    groupadd -g $SLURMUSER slurm
+    useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
+    mkdir -p /var/spool/slurm
+    chown slurm /var/spool/slurm
+    mkdir -p /var/log/slurm
+    chown slurm /var/log/slurm
+    mkdir -p /anfhome/apps/slurm
+
+- name: Copying SLURM config files
+  copy:
+    src: '{{role_path}}/files/{{item}}'
+    dest: /anfhome/apps/slurm/{{item}}
+    force: no
+  with_items:
+    - slurm.conf
+    - cgroup.conf
+
+- name: Create symlinks
+  file:
+    path: /etc/slurm/{{item}}
+    src: /anfhome/apps/slurm/{{item}}
+    state: link
+    force: yes
+  with_items:
+    - slurm.conf
+    - cgroup.conf
+    - cyclecloud.conf
+    - topology.conf
+
+- name: Create CycleCloud directories
+  file:
+    path: "{{item}}"
+    state: directory
+  with_items:
+    - /anfhome/sched
+    - /opt/cycle/jetpack/system/bootstrap/slurm
+    - /opt/cycle/jetpack/config
+
+- name: Create /sched
+  file:
+    path: /sched
+    src: /anfhome/apps/slurm
+    state: link
+
+- name: Download CycleCloud bootstrap
+  unarchive:
+    src: https://ahowardinternal.blob.core.windows.net/releases/slurm8_bootstrap.tgz
+    dest: /opt/cycle/jetpack/system/bootstrap/slurm/
+    remote_src: yes
+
+- name: Installing CycleCloud module
+  pip:
+    executable: pip3
+    name: file:///opt/cycle/jetpack/system/bootstrap/slurm/cyclecloud_api-8.1.0-py2.py3-none-any.whl
+
+- name: Installing job submit plugin
+  copy:
+    src: /opt/cycle/jetpack/system/bootstrap/slurm/job_submit_cyclecloud_centos_20.11.0-0rc2.so
+    dest: /usr/lib64/slurm/
+    remote_src: yes
+
+# - name: Creating sched directory and links
+#   file:
+#     path: /sched/{{item}}
+#     src: /etc/slurm/{{item}}
+#     state: link
+#     force: yes
+#   with_items:
+#     - topology.conf
+#     - cyclecloud.conf
+#     - cgroup.conf
+
+
+# - name: Ensure slurmctld service is running.
+#   service: 
+#     name: slurmctld
+#     state: started
+#     enabled: yes
+
+# - name: download CycleCloud ScaleLib PBSPro  
+#   unarchive: 
+#     src: "https://github.com/Azure/cyclecloud-pbspro/releases/download/2.0.3/cyclecloud-pbspro-pkg-2.0.3.tar.gz"
+#     dest: /tmp/
+#     remote_src: yes
+
+# - name: enable CycleCloud ScaleLib PBSPro
+#   shell: | 
+#     /tmp/cyclecloud-pbspro/initialize_pbs.sh 
+#     /tmp/cyclecloud-pbspro/initialize_default_queues.sh
+#     /tmp/cyclecloud-pbspro/install.sh  --venv /opt/cycle/pbspro/venv --install-venv
+#     /tmp/cyclecloud-pbspro/generate_autoscale_json.sh  --install-dir /opt/cycle/pbspro --username {{ cc_admin }} --password "{{ cc_password }}" --url https://ccportal:9443/cyclecloud --cluster-name pbs1
+#   args:
+#     chdir: /tmp/cyclecloud-pbspro
+
+# # - name: Add resources.json
+# #   copy:
+# #     src: '{{role_path}}/files/resources.json'
+# #     dest: /opt/cycle/pbspro/resources.json
+
+# # - name: Add additional resources definition
+# #   shell: |
+# #     jq '.default_resources' autoscale.json > default_resources.json
+# #     jq '. | del(.default_resources) | .default_resources+=$add | .default_resources+=$resources' --argjson add "$(cat resources.json)" autoscale.json --argjson resources "$(cat default_resources.json)" > tmp_autoscale.json || exit 1
+# #     cp tmp_autoscale.json autoscale.json
+# #     jq '.' autoscale.json || exit 1
+# #     rm tmp_autoscale.json
+# #   args:
+# #     chdir: /opt/cycle/pbspro
+
+# - name: change node timeout to 15mn instead of 5mn
+#   shell: |
+#     jq '.idle_timeout=900' autoscale.json > tmp_autoscale.json || exit 1
+#     cp tmp_autoscale.json autoscale.json
+#     jq '.' autoscale.json || exit 1
+#     rm tmp_autoscale.json
+#   args:
+#     chdir: /opt/cycle/pbspro
+
+# - name: Add logging.conf
+#   copy:
+#     src: '{{role_path}}/files/logging.conf'
+#     dest: /opt/cycle/pbspro/logging.conf
+
+# - name: Add doqmgr pbs configuration script
+#   copy:
+#     src: '{{role_path}}/files/doqmgr.sh'
+#     dest: /var/spool/pbs/doqmgr.sh
+#     mode: '0755'
+    
+# - name: Add pbs sched_config
+#   copy:
+#     src: '{{role_path}}/files/sched_config'
+#     dest: /var/spool/pbs/sched_priv/sched_config
+
+# - name: activate pbs config
+#   shell: /var/spool/pbs/doqmgr.sh 
+
+# - name: Restart pbs-server 
+#   service: 
+#     name: pbs
+#     state: restarted

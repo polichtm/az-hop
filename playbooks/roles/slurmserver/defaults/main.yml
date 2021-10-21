@@ -1,0 +1,5 @@
+cc_server: headnode
+cc_admin: hpcadmin
+cc_password: 
+cc_slurm_version : 20.11.8
+munge_key: abcdefghijklmnopqrstuvwxyz123456

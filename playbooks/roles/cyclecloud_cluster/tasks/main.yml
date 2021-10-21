@@ -96,3 +96,33 @@
     - name: Start OpenPBS Cluster
       command: '/usr/local/bin/cyclecloud start_cluster pbs1'
   when: cc_queue_manager == "openpbs"
+
+- name: SLURM Cycle Cloud project
+  block:
+    - name: Create SLURM CycleCloud project
+      command: '/usr/local/bin/cyclecloud project init slurm'
+      args:
+        chdir: '{{project_root}}'
+        creates: '{{slurm_project_root}}/project.ini'
+
+    - name: Copy SLURM cluster-init files
+      copy:
+        src: '{{role_path}}/projects/slurm/cluster-init'
+        dest: '{{slurm_project_root}}/specs/default/'
+
+    - name: Upload SLURM CycleCloud project
+      command: '/usr/local/bin/cyclecloud project upload'
+      args:
+        chdir: '{{slurm_project_root}}'
+
+    - name: Add azhop-SLURM template
+      template:
+        src: 'azhop-SLURM.txt.j2'
+        dest: '{{project_root}}/azhop-SLURM.txt'
+
+    - name: Import SLURM Cluster
+      command: '/usr/local/bin/cyclecloud import_cluster slurm1 -f {{project_root}}/azhop-SLURM.txt -c azhop-SLURM --force'
+
+    - name: Start SLURM Cluster
+      command: '/usr/local/bin/cyclecloud start_cluster slurm1'
+  when: cc_queue_manager == "slurm"
