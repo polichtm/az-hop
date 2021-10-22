@@ -142,6 +142,15 @@
       pbs_server: scheduler
     when: (queue_manager == "openpbs" or queue_manager is not defined)
 
+  - name: Run the slurmclient role
+    include_role:
+      name: slurmclient
+      apply:
+        become: true
+    vars:
+      slurm_server: scheduler
+    when: (queue_manager == "slurm")
+
   - name: setup cyclecloud proxy
     shell: |
         if ! grep -q ccportal /opt/ood/ood-portal-generator/templates/ood-portal.conf.erb; then
