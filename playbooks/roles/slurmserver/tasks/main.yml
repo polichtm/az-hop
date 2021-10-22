@@ -4,6 +4,7 @@
   yum:
     name: 
       - epel-release
+
 - name: Install dependencies
   yum:
     name: 
@@ -85,6 +86,15 @@
   with_items:
     - slurm.conf
     - cgroup.conf
+
+- name: Create empty confiig files for slurm
+  file:
+    path: /anfhome/apps/slurm/{{item}}
+    state: touch
+  with_items:
+    - cyclecloud.conf
+    - topology.conf
+
 
 - name: Create symlinks
   file:

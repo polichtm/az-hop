@@ -18,11 +18,31 @@
 #     dest: /mnt/resource
 #     remote_src: yes
 
-# - name: install SLURM Client
-#   yum: 
-#     name:
-#       - /mnt/resource/pbspro_19.1.1.centos7/pbspro-execution-19.1.1-0.x86_64.rpm
-#     state: present
+- name: Install SLURM RPMs
+  shell: yum localinstall -y /anfhome/apps/rpms/slurm*rpm
+
+- name: Create SLURM users and directories
+  shell: |
+    export SLURMUSER=1002
+    groupadd -g $SLURMUSER slurm
+    useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
+    mkdir -p /var/spool/slurm
+    chown slurm /var/spool/slurm
+    mkdir -p /var/log/slurm
+    chown slurm /var/log/slurm
+    mkdir -p /anfhome/apps/slurm
+
+- name: Create symlinks
+  file:
+    path: /etc/slurm/{{item}}
+    src: /anfhome/apps/slurm/{{item}}
+    state: link
+    force: yes
+  with_items:
+    - slurm.conf
+    - cgroup.conf
+    - cyclecloud.conf
+    - topology.conf
 
 # - name: Configure PBS server name in pbs.conf
 #   replace : 
