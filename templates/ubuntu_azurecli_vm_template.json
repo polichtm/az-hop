@@ -31,7 +31,6 @@
         "nicName": "[concat(parameters('vmName'),'-nic0')]",
         "diskName": "[concat(parameters('vmName'),'-osDisk')]",
         "nsgName": "[concat(parameters('vmName'),'-nsg0')]",
-        "pipName": "[concat(parameters('vmName'),'-pip0')]",
         "vnetName": "azcli-vnet",
         "subnet0Name": "subnet0",
         "subnet0Ref": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnet0Name'))]",
@@ -65,21 +64,6 @@
                         }
                     }
                 ]
-            }
-        },
-        {
-            "type": "Microsoft.Network/publicIPAddresses",
-            "apiVersion": "[variables('networkApiVersion')]",
-            "name": "[variables('pipName')]",
-            "location": "[resourceGroup().location]",
-            "sku": {
-                "name": "Basic"
-            },
-            "properties": {
-                "publicIPAddressVersion": "IPv4",
-                "publicIPAllocationMethod": "Dynamic",
-                "idleTimeoutInMinutes": 4,
-                "ipTags": []
             }
         },
         {
@@ -143,14 +127,14 @@
             "properties": {
                 "addressSpace": {
                     "addressPrefixes": [
-                        "10.0.0.0/22"
+                        "192.168.0.0/22"
                     ]
                 },
                 "subnets": [
                     {
                         "name": "[variables('subnet0Name')]",
                         "properties": {
-                            "addressPrefix": "10.0.0.0/24"
+                            "addressPrefix": "192.168.0.0/24"
                         }
                     }
                 ]
@@ -174,9 +158,6 @@
                                 "id": "[variables('subnet0Ref')]"
                             },
                             "privateIPAllocationMethod": "Dynamic",
-                            "publicIPAddress": {
-                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
-                            },
                             "primary": true,
                             "privateIPAddressVersion": "IPv4"
                         }
